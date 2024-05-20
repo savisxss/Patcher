@@ -1,53 +1,68 @@
-import tkinter as tk
-from tkinter import messagebox, ttk
-from threading import Thread
+import sys
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QProgressBar, QMessageBox
+from PyQt5.QtCore import QThread, pyqtSignal
 from downloader.updater import update_files
 from logger import log_info, log_error
 
-class PatcherGUI(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title('Patcher GUI')
-        self.geometry('400x200')
-        self.initialize_gui()
-        self.is_updating = False
+class PatcherThread(QThread):
+    progress_updated = pyqtSignal(int, int)
 
-    def initialize_gui(self):
-        self.download_button = tk.Button(self, text='Download Updates', command=self.start_patcher_thread)
-        self.download_button.pack(pady=20)
-        
-        self.progress_bar = ttk.Progressbar(self, orient="horizontal", length=300, mode="determinate")
-        self.progress_bar.pack(pady=10)
-
-    def update_progress_bar(self, progress, total):
-        def task():
-            self.progress_bar["value"] = progress
-            self.progress_bar["maximum"] = total
-        self.after(100, task)
-
-    def run_patcher(self):
-        self.download_button.config(state='disabled')
+    def run(self):
         try:
             update_files(callback=self.update_progress_bar)
-            messagebox.showinfo('Success', 'Files have been updated successfully.')
-            log_info('Files updated successfully.')
+            self.success = True
         except Exception as e:
-            messagebox.showerror('Error', str(e))
-            log_error(f'Error during patching: {e}')
-        finally:
-            self.download_button.config(state='normal')
-            self.progress_bar["value"] = 0
+            self.error = str(e)
+            self.success = False
+
+    def update_progress_bar(self, progress, total):
+        self.progress_updated.emit(progress, total)
+
+class PatcherGUI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('Patcher GUI')
+        self.setGeometry(100, 100, 400, 200)
+        self.initUI()
+
+    def initUI(self):
+        self.download_button = QPushButton('Download Updates', self)
+        self.download_button.clicked.connect(self.start_patcher_thread)
+        
+        self.progress_bar = QProgressBar(self)
+        self.progress_bar.setMaximum(100)
+        
+        layout = QVBoxLayout()
+        layout.addWidget(self.download_button)
+        layout.addWidget(self.progress_bar)
+
+        container = QWidget()
+        container.setLayout(layout)
+        self.setCentralWidget(container)
+        
+    def update_progress_bar(self, progress, total):
+        self.progress_bar.setMaximum(total)
+        self.progress_bar.setValue(progress)
+
+    def patcher_finished(self):
+        if self.patcher_thread.success:
+            QMessageBox.information(self, 'Success', 'Files have been updated successfully.')
+            log_info('Files updated successfully.')
+        else:
+            QMessageBox.critical(self, 'Error', self.patcher_thread.error)
+            log_error(f'Error during patching: {self.patcher_thread.error}')
+        self.download_button.setEnabled(True)
+        self.progress_bar.setValue(0)
 
     def start_patcher_thread(self):
-        if not self.is_updating:
-            self.is_updating = True
-            patcher_thread = Thread(target=self.run_patcher_wrapper)
-            patcher_thread.start()
-
-    def run_patcher_wrapper(self):
-        self.run_patcher()
-        self.is_updating = False
+        self.download_button.setEnabled(False)
+        self.patcher_thread = PatcherThread()
+        self.patcher_thread.progress_updated.connect(self.update_progress_bar)
+        self.patcher_thread.finished.connect(self.patcher_finished)
+        self.patcher_thread.start()
 
 def run():
-    app = PatcherGUI()
-    app.mainloop()
+    app = QApplication(sys.argv)
+    window = PatcherGUI()
+    window.show()
+    sys.exit(app.exec_())

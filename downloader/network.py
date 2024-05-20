@@ -1,6 +1,5 @@
 import requests
 import time
-from tqdm import tqdm
 from settings import DOWNLOAD_SPEED_LIMIT
 from logger import log_info, log_error, log_debug
 
@@ -16,17 +15,18 @@ def download_file(file_url, destination, callback=None, retry_count=3, timeout=1
             response.raise_for_status()
             total_size_in_bytes = int(response.headers.get('content-length', 0))
             block_size = 8192
-            progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
+            downloaded_size = 0
             log_debug(f'Starting download: {file_url}')
 
             with open(destination, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=block_size):
                     if chunk:
-                        progress_bar.update(len(chunk))
                         f.write(chunk)
+                        downloaded_size += len(chunk)
+                        if callback:
+                            callback(downloaded_size, total_size_in_bytes)
                         if throttle_interval > 0:
                             time.sleep(throttle_interval)
-            progress_bar.close()
             log_info(f'File downloaded: {destination}')
             return
         except requests.exceptions.HTTPError as e:
@@ -37,8 +37,6 @@ def download_file(file_url, destination, callback=None, retry_count=3, timeout=1
             log_error(f'Timeout error: {e}')
         except requests.exceptions.RequestException as e:
             log_error(f'Error downloading file {file_url}: {e}')
-        finally:
-            progress_bar.close()
 
         if callback:
             callback(None, None, error=f'Attempt {attempt + 1} failed')
