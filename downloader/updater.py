@@ -1,8 +1,8 @@
 import os
 import requests
-from settings import SERVER_URL, TARGET_FOLDER, FILELIST_URL
+from settings import SERVER_URL, TARGET_FOLDER, FILELIST_URL, MULTITHREADING_THRESHOLD
 from .file_manager import create_directory_if_not_exists, get_file_hash
-from .network import download_file
+from .network import download_file, download_file_multithreaded
 from logger import log_info, log_error, log_debug
 
 def is_file_update_needed(file_name, server_file_hash):
@@ -12,7 +12,7 @@ def is_file_update_needed(file_name, server_file_hash):
     local_file_hash = get_file_hash(local_file_path)
     return local_file_hash != server_file_hash
 
-def update_files(callback=None):
+def update_files(callback=None, use_multithreading=False):
     status_report = {'updated': [], 'skipped': [], 'failed': []}
     try:
         create_directory_if_not_exists(TARGET_FOLDER)
@@ -28,9 +28,19 @@ def update_files(callback=None):
                 file_name, server_file_hash = file_entry.split(',')
                 log_debug(f'Processing file: {file_name}')
                 file_url = f'{SERVER_URL}{file_name}'
+
                 if is_file_update_needed(file_name, server_file_hash):
                     try:
-                        download_file(file_url, os.path.join(TARGET_FOLDER, file_name), callback=callback)
+                        head_response = requests.head(file_url)
+                        file_size = int(head_response.headers.get('Content-Length', 0))
+
+                        if file_size > MULTITHREADING_THRESHOLD:
+                            log_info(f'Using multithreaded download for {file_name}')
+                            download_file_multithreaded(file_url, os.path.join(TARGET_FOLDER, file_name))
+                        else:
+                            log_info(f'Using single-threaded download for {file_name}')
+                            download_file(file_url, os.path.join(TARGET_FOLDER, file_name), callback=callback)
+
                         log_info(f'File updated: {file_name}')
                         status_report['updated'].append(file_name)
                     except Exception as e:
