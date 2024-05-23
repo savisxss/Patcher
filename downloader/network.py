@@ -9,6 +9,10 @@ def download_file(file_url, destination, callback=None, retry_count=3, timeout=1
     if multithreaded:
         download_file_multithreaded(file_url, destination)
     else:
+        max_backoff_time = 120
+        backoff_factor = 2
+        backoff_time = 1
+
         if DOWNLOAD_SPEED_LIMIT > 0:
             throttle_interval = (8192 / (DOWNLOAD_SPEED_LIMIT * 1024))
         else:
@@ -43,9 +47,13 @@ def download_file(file_url, destination, callback=None, retry_count=3, timeout=1
             except requests.exceptions.RequestException as e:
                 log_error(f'Error downloading file {file_url}: {e}')
 
-            if callback:
-                callback(None, None, error=f'Attempt {attempt + 1} failed')
-            log_info(f'Retrying to download file: {file_url}, Attempt: {attempt + 1}')
+            if attempt < retry_count - 1:
+                backoff_time = min(backoff_time * backoff_factor, max_backoff_time)
+                log_info(f'Retrying to download file: {file_url}, Attempt: {attempt + 2}, Waiting for {backoff_time} seconds')
+                time.sleep(backoff_time)
+            else:
+                log_error(f'Failed to download file after {retry_count} attempts: {file_url}')
+                raise
 
         raise Exception(f"Failed to download file after {retry_count} attempts: {file_url}")
 
