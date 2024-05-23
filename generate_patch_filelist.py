@@ -22,7 +22,8 @@ def save_filelist(filelist, output_file):
                 f.write(f"{file_entry}\n")
         log_info(f'File list has been saved to {output_file}')
     except IOError as e:
-        log_error(f'Error saving file list: {e}')
+        log_error(f'Error saving file list to {output_file}: {e}')
+        raise Exception(f"Error saving file list to {output_file}: {e}")
 
 try:
     create_directory_if_not_exists(TARGET_FOLDER)
