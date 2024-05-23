@@ -7,7 +7,7 @@ OUTPUT_FILE = 'patcher.txt'
 
 def generate_filelist(target_folder):
     filelist = []
-    for root, dirs, files in os.walk(target_folder):
+    for root, files in os.walk(target_folder):
         for file in files:
             filepath = os.path.join(root, file)
             file_hash = get_file_hash(filepath)

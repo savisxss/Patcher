@@ -12,7 +12,7 @@ def is_file_update_needed(file_name, server_file_hash):
     local_file_hash = get_file_hash(local_file_path)
     return local_file_hash != server_file_hash
 
-def update_files(callback=None, use_multithreading=False):
+def update_files(callback=None):
     status_report = {'updated': [], 'skipped': [], 'failed': []}
     try:
         create_directory_if_not_exists(TARGET_FOLDER)
