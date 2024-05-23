@@ -4,8 +4,9 @@ import os
 from settings import DOWNLOAD_SPEED_LIMIT
 from logger import log_info, log_error, log_debug
 from concurrent.futures import ThreadPoolExecutor
+from downloader.file_manager import get_file_hash
 
-def download_file(file_url, destination, callback=None, retry_count=3, timeout=10, multithreaded=False):
+def download_file(file_url, destination, expected_checksum, callback=None, retry_count=3, timeout=10, multithreaded=False):
     if multithreaded:
         download_file_multithreaded(file_url, destination)
     else:
@@ -36,7 +37,13 @@ def download_file(file_url, destination, callback=None, retry_count=3, timeout=1
                                 callback(downloaded_size, total_size_in_bytes)
                             if throttle_interval > 0:
                                 time.sleep(throttle_interval)
-                log_info(f'File downloaded: {destination}')
+
+                actual_checksum = get_file_hash(destination)
+                if actual_checksum != expected_checksum:
+                    log_error(f'Checksum mismatch: expected {expected_checksum}, got {actual_checksum}')
+                    raise ValueError(f"Checksum mismatch: expected {expected_checksum}, got {actual_checksum}")
+
+                log_info(f'File downloaded and checksum verified: {destination}')
                 return
             except requests.exceptions.HTTPError as e:
                 log_error(f'HTTP error: {e}')
@@ -46,6 +53,8 @@ def download_file(file_url, destination, callback=None, retry_count=3, timeout=1
                 log_error(f'Timeout error: {e}')
             except requests.exceptions.RequestException as e:
                 log_error(f'Error downloading file {file_url}: {e}')
+            except ValueError as e:
+                log_error(f'Checksum error: {e}')
 
             if attempt < retry_count - 1:
                 backoff_time = min(backoff_time * backoff_factor, max_backoff_time)
@@ -53,9 +62,9 @@ def download_file(file_url, destination, callback=None, retry_count=3, timeout=1
                 time.sleep(backoff_time)
             else:
                 log_error(f'Failed to download file after {retry_count} attempts: {file_url}')
-                raise
-
-        raise Exception(f"Failed to download file after {retry_count} attempts: {file_url}")
+                if callback:
+                    callback(None, None, error='Failed to download file after maximum retry attempts')
+                raise Exception(f"Failed to download file after {retry_count} attempts: {file_url}")
 
 def download_file_segment(url, start_byte, end_byte, part_num, destination):
     headers = {'Range': f'bytes={start_byte}-{end_byte}'}
