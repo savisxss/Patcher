@@ -7,6 +7,12 @@ from logger import log_info, log_error
 class PatcherThread(QThread):
     progress_updated = pyqtSignal(int, int)
     update_status = pyqtSignal(dict)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.success = False
+        self.error = ""
 
     def run(self):
         try:
@@ -16,6 +22,7 @@ class PatcherThread(QThread):
         except Exception as e:
             self.error = str(e)
             self.success = False
+            self.error_occurred.emit(self.error)
 
     def update_progress_bar(self, progress, total):
         self.progress_updated.emit(progress, total)
