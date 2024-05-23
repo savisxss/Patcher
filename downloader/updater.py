@@ -2,7 +2,7 @@ import os
 import requests
 from settings import SERVER_URL, TARGET_FOLDER, FILELIST_URL, MULTITHREADING_THRESHOLD
 from .file_manager import create_directory_if_not_exists, get_file_hash
-from .network import download_file, download_file_multithreaded
+from .network import download_file
 from logger import log_info, log_error, log_debug
 
 def is_file_update_needed(file_name, server_file_hash):
@@ -37,7 +37,7 @@ def update_files(callback=None):
 
                         if file_size > MULTITHREADING_THRESHOLD:
                             log_info(f'Using multithreaded download for {file_name}')
-                            download_file_multithreaded(file_url, os.path.join(TARGET_FOLDER, file_name))
+                            download_file(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, num_threads=4)
                         else:
                             log_info(f'Using single-threaded download for {file_name}')
                             download_file(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash)
