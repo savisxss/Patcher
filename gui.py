@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QProgressBar, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QProgressBar, QMessageBox, QDesktopWidget
 from PyQt5.QtCore import QThread, pyqtSignal
 from downloader.updater import update_files
 from logger import log_info, log_error
@@ -48,7 +48,8 @@ class PatcherGUI(QMainWindow):
         container = QWidget()
         container.setLayout(layout)
         self.setCentralWidget(container)
-        
+        self.center()
+
     def update_progress_bar(self, progress, total):
         self.progress_bar.setMaximum(total)
         self.progress_bar.setValue(progress)
@@ -78,6 +79,12 @@ class PatcherGUI(QMainWindow):
         self.patcher_thread.update_status.connect(self.display_update_status)
         self.patcher_thread.finished.connect(self.patcher_finished)
         self.patcher_thread.start()
+
+    def center(self):
+        qr = self.frameGeometry()
+        cp = QDesktopWidget().availableGeometry().center()
+        qr.moveCenter(cp)
+        self.move(qr.topLeft())
 
 def run():
     app = QApplication(sys.argv)
