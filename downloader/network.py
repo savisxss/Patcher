@@ -23,7 +23,7 @@ def download_file(file_url, destination, callback=None, retry_count=3, timeout=1
                 downloaded_size = 0
                 log_debug(f'Starting download: {file_url}')
 
-                with open(destination, 'wb') as f:
+                with open(destination, 'wb', buffering=8192) as f:
                     for chunk in response.iter_content(chunk_size=block_size):
                         if chunk:
                             f.write(chunk)
@@ -63,8 +63,9 @@ def combine_file_parts(destination, num_parts):
     with open(destination, 'wb') as final_file:
         for part_num in range(num_parts):
             part_file_name = f"{destination}.part{part_num}"
-            with open(part_file_name, 'rb') as part_file:
-                final_file.write(part_file.read())
+            with open(part_file_name, 'rb', buffering=0) as part_file:
+                while chunk := part_file.read(8192):
+                    final_file.write(chunk)
             os.remove(part_file_name)
 
 def download_file_multithreaded(file_url, destination, num_threads=4):
