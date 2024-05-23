@@ -58,8 +58,12 @@ class PatcherGUI(QMainWindow):
         updated_files = '\n'.join(status_report['updated'])
         skipped_files = '\n'.join(status_report['skipped'])
         failed_files = '\n'.join(status_report['failed'])
+        verified_files = '\n'.join(status_report['verification']['verified'])
+        corrupted_files = '\n'.join(status_report['verification']['corrupted'])
 
         message = f"Updated:\n{updated_files}\n\nSkipped:\n{skipped_files}\n\nFailed:\n{failed_files}"
+        if verified_files or corrupted_files:
+            message += f"\n\nVerified:\n{verified_files}\n\nCorrupted:\n{corrupted_files}"
         QMessageBox.information(self, 'Update Status', message)
 
     def patcher_finished(self):

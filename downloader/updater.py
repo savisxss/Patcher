@@ -13,7 +13,8 @@ def is_file_update_needed(file_name, server_file_hash):
     return local_file_hash != server_file_hash
 
 def update_files(callback=None):
-    status_report = {'updated': [], 'skipped': [], 'failed': []}
+    status_report = {'updated': [], 'skipped': [], 'failed': [], 'verification': {'verified': [], 'corrupted': []}}
+    files_to_verify = {}
     try:
         create_directory_if_not_exists(TARGET_FOLDER)
         filelist_response = requests.get(FILELIST_URL)
@@ -39,10 +40,11 @@ def update_files(callback=None):
                             download_file_multithreaded(file_url, os.path.join(TARGET_FOLDER, file_name))
                         else:
                             log_info(f'Using single-threaded download for {file_name}')
-                            download_file(file_url, os.path.join(TARGET_FOLDER, file_name), callback=callback)
+                            download_file(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash)
 
                         log_info(f'File updated: {file_name}')
                         status_report['updated'].append(file_name)
+                        files_to_verify[file_name] = server_file_hash
                     except Exception as e:
                         log_error(f'Error updating file {file_name}: {e}')
                         status_report['failed'].append(file_name)
@@ -55,7 +57,24 @@ def update_files(callback=None):
             else:
                 log_error(f'Invalid file entry format: {file_entry}')
                 status_report['failed'].append(file_entry)
+
+        verification_report = verify_file_integrity(files_to_verify)
+        status_report['verification'] = verification_report
     except requests.exceptions.RequestException as e:
         log_error(f'Error fetching file list: {e}')
 
     return status_report
+
+def verify_file_integrity(files_to_verify):
+    verification_report = {'verified': [], 'corrupted': []}
+    for file_name, expected_checksum in files_to_verify.items():
+        local_file_path = os.path.join(TARGET_FOLDER, file_name)
+        if os.path.exists(local_file_path):
+            local_file_hash = get_file_hash(local_file_path)
+            if local_file_hash == expected_checksum:
+                log_info(f'File integrity verified for {file_name}')
+                verification_report['verified'].append(file_name)
+            else:
+                log_error(f'File integrity check failed for {file_name}')
+                verification_report['corrupted'].append(file_name)
+    return verification_report
