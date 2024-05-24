@@ -1,6 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QProgressBar, QMessageBox, QDesktopWidget
 from PyQt5.QtCore import QThread, pyqtSignal
+import asyncio
 from downloader.updater import update_files
 from logger import log_info, log_error
 
@@ -15,14 +16,18 @@ class PatcherThread(QThread):
         self.error = ""
 
     def run(self):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            status_report = update_files(callback=self.update_progress_bar)
+            status_report = loop.run_until_complete(update_files(callback=self.update_progress_bar))
             self.update_status.emit(status_report)
             self.success = True
         except Exception as e:
             self.error = str(e)
             self.success = False
             self.error_occurred.emit(self.error)
+        finally:
+            loop.close()
 
     def update_progress_bar(self, progress, total):
         self.progress_updated.emit(progress, total)
