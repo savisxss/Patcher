@@ -29,8 +29,11 @@ class PatcherThread(QThread):
         finally:
             loop.close()
 
-    def update_progress_bar(self, progress, total):
-        self.progress_updated.emit(progress, total)
+    def update_progress_bar(self, progress, total, error=None):
+        if error:
+            self.error_occurred.emit(error)
+        else:
+            self.progress_updated.emit(progress, total)
 
 class PatcherGUI(QMainWindow):
     def __init__(self):

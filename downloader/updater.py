@@ -16,51 +16,54 @@ async def update_files(callback=None):
     status_report = {'updated': [], 'skipped': [], 'failed': [], 'verification': {'verified': [], 'corrupted': []}}
     files_to_verify = {}
     try:
-        await create_directory_if_not_exists(TARGET_FOLDER)
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession() as session:  
+            await create_directory_if_not_exists(TARGET_FOLDER)
             async with session.get(FILELIST_URL) as filelist_response:
                 filelist_response.raise_for_status()
-                filelist = filelist_response.text.strip().split('\n')
+                filelist_text = await filelist_response.text()
+                filelist = filelist_text.split('\n')
 
-        total_files = len(filelist)
-        updated_files = 0
+            filelist = [line.strip() for line in filelist if line.strip()]
 
-        for file_entry in filelist:
-            if ',' in file_entry:
-                file_name, server_file_hash = file_entry.split(',')
-                log_debug(f'Processing file: {file_name}')
-                file_url = f'{SERVER_URL}{file_name}'
+            total_files = len(filelist)
+            updated_files = 0
 
-                if await is_file_update_needed(file_name, server_file_hash):
+            for file_entry in filelist:
+                if ',' in file_entry:
+                    file_name, server_file_hash = file_entry.split(',')
+                    log_debug(f'Processing file: {file_name}')
+                    file_url = f'{SERVER_URL}{file_name}'
+
                     try:
                         async with session.head(file_url) as head_response:
                             file_size = int(head_response.headers.get('Content-Length', 0))
 
-                        if file_size > MULTITHREADING_THRESHOLD:
-                            log_info(f'Using multithreaded download for {file_name}')
-                            await resume_download(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, num_threads=4, callback=callback)
-                        else:
-                            log_info(f'Using single-threaded download for {file_name}')
-                            await resume_download(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, callback=callback)
+                        if await is_file_update_needed(file_name, server_file_hash):
+                            if file_size > MULTITHREADING_THRESHOLD:
+                                log_info(f'Using multithreaded download for {file_name}')
+                                await resume_download(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, num_threads=4, callback=callback)
+                            else:
+                                log_info(f'Using single-threaded download for {file_name}')
+                                await resume_download(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, callback=callback)
 
-                        log_info(f'File updated: {file_name}')
-                        status_report['updated'].append(file_name)
-                        files_to_verify[file_name] = server_file_hash
-                    except Exception as e:
+                            log_info(f'File updated: {file_name}')
+                            status_report['updated'].append(file_name)
+                            files_to_verify[file_name] = server_file_hash
+                        else:
+                            log_info(f'File is up-to-date, skipping: {file_name}')
+                            status_report['skipped'].append(file_name)
+                        updated_files += 1
+                        if callback:
+                            callback(updated_files, total_files)
+                    except aiohttp.ClientError as e:
                         log_error(f'Error updating file {file_name}: {e}')
                         status_report['failed'].append(file_name)
                 else:
-                    log_info(f'File is up-to-date, skipping: {file_name}')
-                    status_report['skipped'].append(file_name)
-                updated_files += 1
-                if callback:
-                    callback(updated_files, total_files)
-            else:
-                log_error(f'Invalid file entry format: {file_entry}')
-                status_report['failed'].append(file_entry)
+                    log_error(f'Invalid file entry format: {file_entry}')
+                    status_report['failed'].append(file_entry)
 
-        verification_report = await verify_file_integrity(files_to_verify, callback=callback)
-        status_report['verification'] = verification_report
+            verification_report = await verify_file_integrity(files_to_verify, callback=callback)
+            status_report['verification'] = verification_report
     except aiohttp.ClientError as e:
         log_error(f'Error fetching file list: {e}')
 
