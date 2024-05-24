@@ -2,7 +2,7 @@ import os
 import aiohttp
 from settings import SERVER_URL, TARGET_FOLDER, FILELIST_URL, MULTITHREADING_THRESHOLD
 from .file_manager import create_directory_if_not_exists, get_file_hash
-from .network import download_file
+from .network import resume_download
 from logger import log_info, log_error, log_debug
 
 async def is_file_update_needed(file_name, server_file_hash):
@@ -38,10 +38,10 @@ async def update_files(callback=None):
 
                         if file_size > MULTITHREADING_THRESHOLD:
                             log_info(f'Using multithreaded download for {file_name}')
-                            await download_file(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, num_threads=4, callback=callback)
+                            await resume_download(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, num_threads=4, callback=callback)
                         else:
                             log_info(f'Using single-threaded download for {file_name}')
-                            await download_file(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, callback=callback)
+                            await resume_download(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, callback=callback)
 
                         log_info(f'File updated: {file_name}')
                         status_report['updated'].append(file_name)
