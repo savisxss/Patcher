@@ -17,8 +17,11 @@ async def get_file_hash(file_path):
     sha256_hash = hashlib.sha256()
     try:
         async with aiofiles.open(file_path, 'rb') as f:
-            async for byte_block in f.iter_by_block(4096):
-                sha256_hash.update(byte_block)
+            while True:
+                chunk = await f.read(4096)
+                if not chunk:
+                    break
+                sha256_hash.update(chunk)
         return sha256_hash.hexdigest()
     except OSError as e:
         log_error(f"Error reading file {file_path}: {e}")
