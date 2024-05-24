@@ -1,9 +1,10 @@
 import os
 import hashlib
 import asyncio
+import aiofiles
 from logger import log_info, log_error
 
-def create_directory_if_not_exists(directory_path):
+async def create_directory_if_not_exists(directory_path):
     try:
         if not os.path.exists(directory_path):
             os.makedirs(directory_path)
@@ -12,11 +13,11 @@ def create_directory_if_not_exists(directory_path):
         log_error(f"Error creating directory {directory_path}: {e}")
         raise Exception(f"Error creating directory {directory_path}: {e}")
 
-def get_file_hash(file_path):
+async def get_file_hash(file_path):
     sha256_hash = hashlib.sha256()
     try:
-        with open(file_path, 'rb', buffering=0) as f:
-            for byte_block in iter(lambda: f.read(4096), b""):
+        async with aiofiles.open(file_path, 'rb') as f:
+            async for byte_block in f.iter_by_block(4096):
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
     except OSError as e:
@@ -25,19 +26,19 @@ def get_file_hash(file_path):
 
 async def save_progress(file_path, progress):
     try:
-        with open(f"{file_path}.progress", 'w') as f:
-            f.write(str(progress))
+        async with aiofiles.open(f"{file_path}.progress", 'w') as f:
+            await f.write(str(progress))
     except OSError as e:
         log_error(f"Error saving progress for {file_path}: {e}")
 
 async def load_progress(file_path):
     try:
-        with open(f"{file_path}.progress", 'r') as f:
-            return int(f.read())
+        async with aiofiles.open(f"{file_path}.progress", 'r') as f:
+            return int(await f.read())
     except (OSError, ValueError):
         return 0
 
-def remove_progress_file(file_path):
+async def remove_progress_file(file_path):
     try:
         os.remove(f"{file_path}.progress")
     except OSError as e:

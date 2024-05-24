@@ -9,14 +9,14 @@ async def is_file_update_needed(file_name, server_file_hash):
     local_file_path = os.path.join(TARGET_FOLDER, file_name)
     if not os.path.exists(local_file_path):
         return True
-    local_file_hash = get_file_hash(local_file_path)
+    local_file_hash = await get_file_hash(local_file_path)
     return local_file_hash != server_file_hash
 
 async def update_files(callback=None):
     status_report = {'updated': [], 'skipped': [], 'failed': [], 'verification': {'verified': [], 'corrupted': []}}
     files_to_verify = {}
     try:
-        create_directory_if_not_exists(TARGET_FOLDER)
+        await create_directory_if_not_exists(TARGET_FOLDER)
         async with aiohttp.ClientSession() as session:
             async with session.get(FILELIST_URL) as filelist_response:
                 filelist_response.raise_for_status()
@@ -73,7 +73,7 @@ async def verify_file_integrity(files_to_verify, callback=None):
     for file_name, expected_checksum in files_to_verify.items():
         local_file_path = os.path.join(TARGET_FOLDER, file_name)
         if os.path.exists(local_file_path):
-            local_file_hash = get_file_hash(local_file_path)
+            local_file_hash = await get_file_hash(local_file_path)
             if local_file_hash == expected_checksum:
                 log_info(f'File integrity verified for {file_name}')
                 verification_report['verified'].append(file_name)

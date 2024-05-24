@@ -5,24 +5,25 @@ from settings import DOWNLOAD_SPEED_LIMIT
 from logger import log_info, log_error, log_debug
 from concurrent.futures import ThreadPoolExecutor
 from downloader.file_manager import get_file_hash, save_progress, load_progress, remove_progress_file
+import aiofiles
 
 async def download_file_segment(session, url, start_byte, end_byte, part_num, destination):
     headers = {'Range': f'bytes={start_byte}-{end_byte}'}
     part_file_name = f"{destination}.part{part_num}"
     async with session.get(url, headers=headers) as response:
         response.raise_for_status()
-        with open(part_file_name, 'ab') as file:
+        async with aiofiles.open(part_file_name, 'ab') as file:
             async for chunk in response.content.iter_chunked(1024):
-                file.write(chunk)
+                await file.write(chunk)
     return part_file_name
 
-def combine_file_parts(destination, num_parts):
-    with open(destination, 'wb') as final_file:
+async def combine_file_parts(destination, num_parts):
+    async with aiofiles.open(destination, 'wb') as final_file:
         for part_num in range(num_parts):
             part_file_name = f"{destination}.part{part_num}"
-            with open(part_file_name, 'rb', buffering=0) as part_file:
-                while chunk := part_file.read(8192):
-                    final_file.write(chunk)
+            async with aiofiles.open(part_file_name, 'rb', buffering=0) as part_file:
+                while chunk := await part_file.read(8192):
+                    await final_file.write(chunk)
             os.remove(part_file_name)
 
 async def download_file(file_url, destination, expected_checksum, callback=None, retry_count=3, timeout=10, num_threads=4):
@@ -58,20 +59,20 @@ async def download_file(file_url, destination, expected_checksum, callback=None,
                     for future in await asyncio.gather(*futures):
                         await future
                         downloaded_size += part_size
-                        save_progress(destination, downloaded_size)
+                        await save_progress(destination, downloaded_size)
                         if callback:
                             callback(downloaded_size, total_size_in_bytes)
                         if throttle_interval > 0:
                             await asyncio.sleep(throttle_interval)
 
-                combine_file_parts(destination, num_threads)
-                actual_checksum = get_file_hash(destination)
+                await combine_file_parts(destination, num_threads)
+                actual_checksum = await get_file_hash(destination)
                 if actual_checksum != expected_checksum:
                     log_error(f'Checksum mismatch: expected {expected_checksum}, got {actual_checksum}')
                     raise ValueError(f"Checksum mismatch: expected {expected_checksum}, got {actual_checksum}")
 
                 log_info(f'File downloaded and checksum verified: {destination}')
-                remove_progress_file(destination)
+                await remove_progress_file(destination)
                 return
         except aiohttp.ClientError as e:
             log_error(f'HTTP error: {e}')
@@ -91,7 +92,7 @@ async def download_file(file_url, destination, expected_checksum, callback=None,
             raise Exception(f"Failed to download file after {retry_count} attempts: {file_url}")
 
 async def resume_download(file_url, destination, expected_checksum, callback=None, retry_count=3, timeout=10, num_threads=4):
-    resume_position = load_progress(destination)
+    resume_position = await load_progress(destination)
     throttle_interval = (8192 / (DOWNLOAD_SPEED_LIMIT * 1024)) if DOWNLOAD_SPEED_LIMIT > 0 else 0
 
     if resume_position > 0:
@@ -119,20 +120,20 @@ async def resume_download(file_url, destination, expected_checksum, callback=Non
                     for future in await asyncio.gather(*futures):
                         await future
                         downloaded_size += part_size
-                        save_progress(destination, downloaded_size)
+                        await save_progress(destination, downloaded_size)
                         if callback:
                             callback(downloaded_size, total_size_in_bytes)
                         if throttle_interval > 0:
                             await asyncio.sleep(throttle_interval)
 
-                combine_file_parts(destination, num_threads)
-                actual_checksum = get_file_hash(destination)
+                await combine_file_parts(destination, num_threads)
+                actual_checksum = await get_file_hash(destination)
                 if actual_checksum != expected_checksum:
                     log_error(f'Checksum mismatch: expected {expected_checksum}, got {actual_checksum}')
                     raise ValueError(f"Checksum mismatch: expected {expected_checksum}, got {actual_checksum}")
 
                 log_info(f'File downloaded and checksum verified: {destination}')
-                remove_progress_file(destination)
+                await remove_progress_file(destination)
                 return
     else:
         await download_file(file_url, destination, expected_checksum, callback, retry_count, timeout, num_threads)
