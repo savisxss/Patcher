@@ -38,10 +38,10 @@ async def update_files(callback=None):
 
                         if file_size > MULTITHREADING_THRESHOLD:
                             log_info(f'Using multithreaded download for {file_name}')
-                            await download_file(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, num_threads=4)
+                            await download_file(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, num_threads=4, callback=callback)
                         else:
                             log_info(f'Using single-threaded download for {file_name}')
-                            await download_file(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash)
+                            await download_file(file_url, os.path.join(TARGET_FOLDER, file_name), server_file_hash, callback=callback)
 
                         log_info(f'File updated: {file_name}')
                         status_report['updated'].append(file_name)
@@ -59,15 +59,17 @@ async def update_files(callback=None):
                 log_error(f'Invalid file entry format: {file_entry}')
                 status_report['failed'].append(file_entry)
 
-        verification_report = await verify_file_integrity(files_to_verify)
+        verification_report = await verify_file_integrity(files_to_verify, callback=callback)
         status_report['verification'] = verification_report
     except aiohttp.ClientError as e:
         log_error(f'Error fetching file list: {e}')
 
     return status_report
 
-async def verify_file_integrity(files_to_verify):
+async def verify_file_integrity(files_to_verify, callback=None):
     verification_report = {'verified': [], 'corrupted': []}
+    total_files = len(files_to_verify)
+    processed_files = 0
     for file_name, expected_checksum in files_to_verify.items():
         local_file_path = os.path.join(TARGET_FOLDER, file_name)
         if os.path.exists(local_file_path):
@@ -78,4 +80,7 @@ async def verify_file_integrity(files_to_verify):
             else:
                 log_error(f'File integrity check failed for {file_name}')
                 verification_report['corrupted'].append(file_name)
+        processed_files += 1
+        if callback:
+            callback(processed_files, total_files)
     return verification_report
