@@ -1,7 +1,7 @@
 import os
 import aiohttp
-from settings import SERVER_URL, TARGET_FOLDER, FILELIST_URL, MULTITHREADING_THRESHOLD
-from .file_manager import create_directory_if_not_exists, get_file_hash
+from settings import SERVER_URL, TARGET_FOLDER, FILELIST_URL, MULTITHREADING_THRESHOLD, PROGRESS_FILE_MAX_AGE
+from .file_manager import create_directory_if_not_exists, get_file_hash, clean_old_progress_files
 from .network import resume_download
 from logger import log_info, log_error, log_debug
 
@@ -64,6 +64,7 @@ async def update_files(callback=None):
 
             verification_report = await verify_file_integrity(files_to_verify, callback=callback)
             status_report['verification'] = verification_report
+            await clean_old_progress_files(TARGET_FOLDER, PROGRESS_FILE_MAX_AGE)
     except aiohttp.ClientError as e:
         log_error(f'Error fetching file list: {e}')
 
