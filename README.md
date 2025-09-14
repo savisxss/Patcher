@@ -1,145 +1,136 @@
-# Patcher
+# Patcher - Tauri + Python
 
-Patcher is a high-performance update and patch management system designed to streamline the process of applying updates to software. It features an efficient file manager, asynchronous updater, and an intuitive graphical user interface.
+Modern update and patch management system built with Tauri (Rust + Vue.js) frontend and Python backend.
 
 ## 🚀 Features
 
-- **Efficient Asynchronous Downloads**: Uses asynchronous I/O and multithreading for optimal performance
-- **Resumable Downloads**: Automatically resumes interrupted downloads to save time and bandwidth
-- **File Integrity Verification**: Ensures the integrity of downloaded files through SHA-256 checksum verification
-- **Bandwidth Control**: Configurable download speed limits to prevent network saturation
-- **Modern GUI**: User-friendly interface with progress tracking and detailed status reports
-- **Robust Logging**: Comprehensive logging system with rotating file handlers to track operations
+- **Modern UI**: Beautiful Vue.js interface with real-time updates
+- **Python Backend**: Reliable Python backend with asyncio for high performance
 - **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Efficient Downloads**: Asynchronous downloads with resume capability
+- **File Integrity**: SHA-256 checksum verification
+- **Progress Tracking**: Real-time progress updates with detailed logging
+- **Configuration Management**: Easy configuration through the UI
 
 ## 📋 Requirements
 
 - Python 3.7 or higher
-- Required packages (automatically installed):
-  - `aiohttp`: For asynchronous HTTP requests
-  - `aiofiles`: For asynchronous file operations
-  - `PyYAML`: For configuration parsing
-  - `PyQt5`: For the graphical user interface
-  - `psutil`: For system monitoring functions
+- Node.js 16 or higher
+- Rust (if building from source)
 
-## 🔧 Installation
+## 🔧 Quick Start
 
-### Quick Start
+### Option 1: Easy Start (Recommended)
+Run the start script:
+```bash
+start.bat
+```
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/savisxss/Patcher.git
-   cd Patcher
-   ```
+### Option 2: Manual Setup
 
-2. Run the installer script:
-   ```bash
-   python install.py
-   ```
-
-3. Update the `config.yaml` file with your server details
-
-4. Run the application:
-   ```bash
-   python main.py
-   ```
-
-### Manual Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/savisxss/Patcher.git
-   cd Patcher
-   ```
-
-2. Install dependencies:
+1. **Install Python dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. Update the `config.yaml` file with your server details
-
-4. Create necessary directories:
+2. **Install Node.js dependencies:**
    ```bash
-   mkdir -p logs patcher
+   npm install
    ```
 
-5. Run the application:
+3. **Start the application:**
    ```bash
-   python main.py
+   npm run tauri dev
    ```
 
-## 🖥️ Building an Executable
+## 🏗️ Building for Production
 
-To build Patcher into a standalone executable, you can use the included batch script:
-
-### Windows
+To build a production executable:
 
 ```bash
-compile_to_exe.bat
+npm run tauri build
 ```
 
-This will generate an executable in the `dist` directory.
+The built executable will be available in `src-tauri/target/release/`.
 
-### macOS/Linux
+## ⚙️ How It Works
 
-```bash
-pip install pyinstaller
-pyinstaller --onefile --windowed --name Patcher --add-data "config.yaml:." main.py
-```
+The application consists of two parts:
 
-## ⚙️ Configuration
+1. **Tauri Frontend**: Modern Vue.js interface that runs as a desktop app
+2. **Python Backend**: HTTP API server that handles the actual downloading and patching
 
-The application uses a `config.yaml` file with the following settings:
+When you start the application:
+1. Tauri app launches and automatically starts the Python backend
+2. Backend runs on `localhost:8080` and provides REST API endpoints
+3. Frontend communicates with backend via HTTP requests
+4. Progress updates are sent via Tauri events for real-time UI updates
 
-```yaml
-SERVER_URL: 'https://your-server.com/'
-TARGET_FOLDER: 'patcher'
-FILELIST_URL: 'https://your-server.com/patcher.txt'
-DOWNLOAD_SPEED_LIMIT: 0  # KB/s (0 means no limit)
-MULTITHREADING_THRESHOLD: 10485760  # bytes (10MB)
-PROGRESS_FILE_MAX_AGE: 86400  # seconds (24 hours)
-```
+## 🔧 Configuration
 
-### Configuration Options
+Configure your settings through the UI:
 
-- **SERVER_URL**: Base URL for downloading files (must end with a '/')
-- **TARGET_FOLDER**: Local folder where downloaded files will be stored
-- **FILELIST_URL**: URL to the file containing the list of files to download
-- **DOWNLOAD_SPEED_LIMIT**: Maximum download speed in KB/s (0 = unlimited)
-- **MULTITHREADING_THRESHOLD**: File size threshold for enabling multithreaded downloads
-- **PROGRESS_FILE_MAX_AGE**: Maximum age of progress files before automatic cleanup
+- **Server URL**: Base URL for downloading files (must end with '/')
+- **Target Folder**: Local folder where files will be downloaded
+- **File List URL**: URL to the file containing the list of files to download
+- **Download Speed Limit**: Maximum download speed in KB/s (0 = unlimited)
+
+Configuration is automatically saved to `config.yaml`.
 
 ## 📁 File List Format
 
 The file list should be a text file with each line in the format:
-
 ```
 path/to/file,sha256-checksum
 ```
 
-For example:
+Example:
 ```
 data/config.json,e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 images/logo.png,a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e
 ```
 
-You can generate this file with the included tool:
-
-```bash
-python generate_patch_filelist.py --target /path/to/files --output patcher.txt
-```
-
 ## 🔍 Logging
 
-Logs are stored in the `logs` directory with automatic rotation:
-- `logs/patcher.log`: Main application log
-- `patch_generator.log`: Generated when creating file lists
+Logs are automatically stored in the `logs/` directory:
+- `logs/patcher.log`: Application logs with automatic rotation
 
-## 👥 Contributing
+## 🛠️ Development
 
-Contributions are welcome! Please feel free to submit pull requests or open issues to improve the application.
+### Project Structure
+```
+├── src/                    # Vue.js frontend
+│   ├── App.vue            # Main application component
+│   ├── main.ts            # Vue app entry point
+│   └── styles.css         # Global styles
+├── src-tauri/             # Tauri/Rust backend
+│   ├── src/main.rs        # Tauri application logic
+│   └── Cargo.toml         # Rust dependencies
+├── python_backend.py      # Python API server
+├── downloader/            # Python download modules
+├── requirements.txt       # Python dependencies
+└── package.json          # Node.js dependencies
+```
+
+### Available Scripts
+
+- `npm run dev` - Start Vite development server
+- `npm run build` - Build Vue.js for production
+- `npm run tauri dev` - Start Tauri development mode
+- `npm run tauri build` - Build production executable
+
+### Backend API Endpoints
+
+- `GET /health` - Health check
+- `GET /config` - Get current configuration
+- `POST /config` - Save configuration
+- `POST /update` - Start update process
+- `GET /status` - Get update status and progress
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit pull requests or open issues.
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
